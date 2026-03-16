@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>BALLOON POP</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#050510;--panel:#0d0d22;--border:#1a1a3e;
+  --cyan:#00fff0;--pink:#ff00aa;--yellow:#ffe500;
+  --green:#00ff88;--red:#ff2255;--text:#e0e8ff;--muted:#4a4a7a;
+  --mono:'Share Tech Mono',monospace;--head:'Rajdhani',sans-serif;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--head)}
+body{display:flex;flex-direction:column;align-items:center;justify-content:space-between;position:relative;overflow:hidden;padding:0 0 env(safe-area-inset-bottom,0)}
+.grid{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(0,255,240,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,240,.04) 1px,transparent 1px);background-size:40px 40px}
+.vig{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 40%,rgba(5,5,16,.9) 100%)}
+
+/* HEADER */
+.hdr{width:100%;max-width:430px;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;z-index:10;border-bottom:1px solid var(--border)}
+.logo{font-family:var(--mono);font-size:13px;letter-spacing:3px;color:var(--cyan);text-shadow:0 0 10px var(--cyan)}
+.logo b{color:var(--pink)}
+.stars-badge{display:flex;align-items:center;gap:6px;background:rgba(255,229,0,.1);border:1px solid rgba(255,229,0,.3);border-radius:20px;padding:5px 12px;cursor:pointer;transition:all .15s}
+.stars-badge:hover{background:rgba(255,229,0,.18);border-color:var(--yellow)}
+.stars-badge .icon{font-size:14px}
+.stars-badge .val{font-family:var(--mono);font-size:13px;color:var(--yellow);text-shadow:0 0 8px rgba(255,229,0,.5)}
+.stars-badge .plus{font-size:14px;color:var(--yellow);margin-left:2px}
+
+/* STATS */
+.stats{width:100%;max-width:430px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:8px 16px;z-index:10}
+.s{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:7px 10px;text-align:center;position:relative;overflow:hidden}
+.s::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:.4}
+.sl{font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:2px}
+.sv{font-family:var(--mono);font-size:15px;color:var(--cyan);text-shadow:0 0 8px rgba(0,255,240,.4)}
+.sv.g{color:var(--green);text-shadow:0 0 8px rgba(0,255,136,.4)}
+.sv.r{color:var(--red)}
+
+/* ARENA */
+.arena{width:100%;max-width:430px;flex:1;position:relative;z-index:10;margin:0;overflow:hidden;display:flex;align-items:stretch}
+.aframe{position:absolute;inset:6px;border:1px solid var(--border);border-radius:14px;background:var(--panel);overflow:hidden;transition:border-color .3s}
+.aframe.active{border-color:rgba(0,255,240,.35);box-shadow:0 0 30px rgba(0,255,240,.06)}
+.corner{position:absolute;width:12px;height:12px}
+.corner::before,.corner::after{content:'';position:absolute;background:var(--cyan);opacity:.7}
+.corner::before{width:100%;height:1px;top:0;left:0}
+.corner::after{width:1px;height:100%;top:0;left:0}
+.c-tl{top:8px;left:8px}.c-tr{top:8px;right:8px;transform:scaleX(-1)}
+.c-bl{bottom:8px;left:8px;transform:scaleY(-1)}.c-br{bottom:8px;right:8px;transform:scale(-1)}
+.balloon-c{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);transform-origin:bottom center}
+.multi-w{position:absolute;top:50%;left:50%;transform:translate(-50%,-65%);text-align:center;pointer-events:none}
+.mnum{font-family:var(--mono);font-size:50px;line-height:1;color:var(--cyan);text-shadow:0 0 20px var(--cyan),0 0 40px rgba(0,255,240,.2);transition:color .1s}
+.mnum.hot{color:var(--yellow);text-shadow:0 0 20px var(--yellow),0 0 50px rgba(255,229,0,.25);animation:np .4s ease infinite}
+.mnum.boom{color:var(--red);text-shadow:0 0 30px var(--red)}
+@keyframes np{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+.mx{font-family:var(--mono);font-size:13px;color:var(--muted);letter-spacing:3px;margin-top:3px}
+.mst{font-size:10px;letter-spacing:2px;color:var(--muted);margin-top:5px;text-transform:uppercase}
+.particles{position:absolute;inset:0;pointer-events:none;z-index:20}
+.p{position:absolute;border-radius:50%;animation:pf var(--d) ease-out forwards}
+@keyframes pf{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--x),var(--y)) scale(0);opacity:0}}
+.fl{position:absolute;inset:0;border-radius:14px;background:var(--red);opacity:0;pointer-events:none;z-index:15;transition:opacity .05s}
+.fl.on{opacity:.2}
+.rbanner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.85);background:rgba(5,5,16,.96);border:1px solid var(--cyan);border-radius:12px;padding:14px 28px;text-align:center;z-index:25;opacity:0;pointer-events:none;transition:all .25s cubic-bezier(.34,1.56,.64,1);box-shadow:0 0 40px rgba(0,255,240,.15)}
+.rbanner.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.rbanner.lose{border-color:var(--red);box-shadow:0 0 40px rgba(255,34,85,.15)}
+.rbl{font-size:10px;letter-spacing:3px;color:var(--muted);margin-bottom:3px}
+.rbv{font-family:var(--mono);font-size:30px}
+.rbv.w{color:var(--green);text-shadow:0 0 10px var(--green)}
+.rbv.l{color:var(--red);text-shadow:0 0 10px var(--red)}
+
+/* CONTROLS */
+.ctrl{width:100%;max-width:430px;padding:8px 16px;z-index:10;display:flex;flex-direction:column;gap:8px}
+.bet-row{display:flex;align-items:center;gap:7px}
+.blabel{font-size:10px;letter-spacing:2px;color:var(--muted);min-width:44px}
+.qbs{display:flex;gap:5px;flex:1}
+.qb{flex:1;padding:7px 0;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .15s}
+.qb:hover{border-color:var(--cyan);color:var(--cyan)}
+.qb.active{background:rgba(0,255,240,.08);border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 8px rgba(0,255,240,.12)}
+.bcustom{background:var(--panel);border:1px solid var(--border);color:var(--cyan);border-radius:6px;padding:6px 8px;font-family:var(--mono);font-size:12px;width:58px;text-align:center}
+.bcustom:focus{outline:none;border-color:var(--cyan)}
+.abtn{width:100%;padding:14px;border:none;border-radius:10px;font-family:var(--mono);font-size:13px;letter-spacing:3px;cursor:pointer;text-transform:uppercase;transition:all .15s;position:relative;overflow:hidden}
+.abtn::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);transform:translateX(-100%);transition:transform .4s}
+.abtn:hover::before{transform:translateX(100%)}
+.btn-s{background:rgba(0,255,240,.06);border:1px solid var(--cyan);color:var(--cyan);text-shadow:0 0 8px var(--cyan);box-shadow:0 0 16px rgba(0,255,240,.08),inset 0 0 16px rgba(0,255,240,.04)}
+.btn-s:hover{box-shadow:0 0 24px rgba(0,255,240,.2)}
+.btn-c{background:rgba(255,229,0,.08);border:1px solid var(--yellow);color:var(--yellow);text-shadow:0 0 8px var(--yellow);animation:cg 1s ease infinite}
+@keyframes cg{0%,100%{box-shadow:0 0 16px rgba(255,229,0,.12)}50%{box-shadow:0 0 32px rgba(255,229,0,.28)}}
+.abtn:disabled{opacity:.3;cursor:not-allowed;animation:none;box-shadow:none}
+
+/* HISTORY */
+.hist{width:100%;max-width:430px;padding:0 16px 10px;z-index:10}
+.hl{font-size:9px;letter-spacing:3px;color:var(--muted);margin-bottom:5px}
+.hcs{display:flex;gap:5px;flex-wrap:wrap}
+.chip{font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid}
+.chip.w{background:rgba(0,255,136,.08);border-color:rgba(0,255,136,.3);color:var(--green)}
+.chip.l{background:rgba(255,34,85,.08);border-color:rgba(255,34,85,.25);color:var(--red)}
+
+/* SHOP MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.overlay.open{opacity:1;pointer-events:all}
+.shop{width:100%;max-width:430px;background:#0d0d22;border:1px solid var(--border);border-top-left-radius:20px;border-top-right-radius:20px;padding:20px 20px 32px;transform:translateY(100%);transition:transform .3s cubic-bezier(.34,1.2,.64,1)}
+.overlay.open .shop{transform:translateY(0)}
+.shop-title{font-family:var(--mono);font-size:14px;letter-spacing:3px;color:var(--yellow);text-align:center;margin-bottom:4px;text-shadow:0 0 10px rgba(255,229,0,.4)}
+.shop-sub{font-size:11px;color:var(--muted);text-align:center;letter-spacing:1px;margin-bottom:18px}
+.packs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px}
+.pack{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:12px;padding:14px 8px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
+.pack:hover,.pack.sel{border-color:var(--yellow);background:rgba(255,229,0,.06);box-shadow:0 0 16px rgba(255,229,0,.1)}
+.pack.pop{border-color:var(--cyan)}
+.pop-badge{position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:var(--cyan);color:#000;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;letter-spacing:1px}
+.pack-coins{font-family:var(--mono);font-size:18px;color:var(--cyan);text-shadow:0 0 8px rgba(0,255,240,.4)}
+.pack-label{font-size:10px;color:var(--muted);margin:3px 0;letter-spacing:1px}
+.pack-stars{display:flex;align-items:center;justify-content:center;gap:4px;font-family:var(--mono);font-size:13px;color:var(--yellow)}
+.pack-stars .si{font-size:13px}
+.shop-btn{width:100%;padding:13px;background:rgba(255,229,0,.1);border:1px solid var(--yellow);border-radius:10px;color:var(--yellow);font-family:var(--mono);font-size:13px;letter-spacing:2px;cursor:pointer;text-transform:uppercase;transition:all .15s}
+.shop-btn:hover{background:rgba(255,229,0,.18);box-shadow:0 0 20px rgba(255,229,0,.15)}
+.shop-btn:disabled{opacity:.4;cursor:not-allowed}
+.close-shop{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1}
+.shop{position:relative}
+.loading-spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,229,0,.3);border-top-color:var(--yellow);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="grid"></div><div class="vig"></div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="logo">BALLOON<b>POP</b></div>
+  <div class="stars-badge" onclick="openShop()">
+    <span class="icon">⭐</span>
+    <span class="val" id="stars-count">0</span>
+    <span class="plus">+</span>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="s"><div class="sl">Монеты</div><div class="sv" id="balance">200</div></div>
+  <div class="s"><div class="sl">Раунд</div><div class="sv" id="round-stat" style="color:var(--muted)">—</div></div>
+  <div class="s"><div class="sl">Рекорд</div><div class="sv g" id="best-stat" style="color:var(--muted)">—</div></div>
+</div>
+
+<!-- ARENA -->
+<div class="arena">
+  <div class="aframe" id="aframe">
+    <div class="corner c-tl"></div><div class="corner c-tr"></div>
+    <div class="corner c-bl"></div><div class="corner c-br"></div>
+    <div class="particles" id="pts"></div>
+    <div class="fl" id="fl"></div>
+    <div class="balloon-c" id="bwrap">
+      <svg id="bsvg" width="72" height="92" viewBox="0 0 72 92" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="bg1" cx="35%" cy="28%" r="65%">
+            <stop offset="0%" stop-color="#00fff0" stop-opacity=".9"/>
+            <stop offset="45%" stop-color="#0077cc"/>
+            <stop offset="100%" stop-color="#001122"/>
+          </radialGradient>
+          <radialGradient id="bg2" cx="30%" cy="25%" r="38%">
+            <stop offset="0%" stop-color="#fff" stop-opacity=".45"/>
+            <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+          </radialGradient>
+          <filter id="gf"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <ellipse id="ball" cx="36" cy="39" rx="29" ry="33" fill="url(#bg1)" filter="url(#gf)"/>
+        <ellipse cx="27" cy="24" rx="9" ry="11" fill="url(#bg2)"/>
+        <path d="M33 72 Q36 79 39 72" stroke="#00ccbb" stroke-width="1.5" fill="none"/>
+        <line x1="36" y1="72" x2="36" y2="92" stroke="rgba(0,255,240,.35)" stroke-width="1.2"/>
+        <circle cx="48" cy="28" r="2" fill="rgba(0,255,240,.55)"/>
+        <circle cx="45" cy="37" r="1.2" fill="rgba(0,255,240,.35)"/>
+      </svg>
+    </div>
+    <div class="multi-w">
+      <div class="mnum" id="mnum">1.00</div>
+      <div class="mx">× МНОЖИТЕЛЬ</div>
+      <div class="mst" id="mst">СДЕЛАЙ СТАВКУ</div>
+    </div>
+    <div class="rbanner" id="rbanner">
+      <div class="rbl" id="rbl">ВЫИГРЫШ</div>
+      <div class="rbv" id="rbv"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CONTROLS -->
+<div class="ctrl">
+  <div class="bet-row">
+    <span class="blabel">СТАВКА</span>
+    <div class="qbs">
+      <button class="qb active" data-v="5" onclick="setBet(5)">5</button>
+      <button class="qb" data-v="10" onclick="setBet(10)">10</button>
+      <button class="qb" data-v="25" onclick="setBet(25)">25</button>
+      <button class="qb" data-v="50" onclick="setBet(50)">50</button>
+    </div>
+    <input class="bcustom" id="binp" type="number" value="5" min="1" max="9999" onchange="setBetD(this.value)"/>
+  </div>
+  <button class="abtn btn-s" id="abtn" onclick="handle()">▶ ИГРАТЬ</button>
+</div>
+
+<!-- HISTORY -->
+<div class="hist">
+  <div class="hl">◈ ПОСЛЕДНИЕ РАУНДЫ</div>
+  <div class="hcs" id="hcs"></div>
+</div>
+
+<!-- SHOP MODAL -->
+<div class="overlay" id="overlay" onclick="overlayClick(event)">
+  <div class="shop">
+    <button class="close-shop" onclick="closeShop()">✕</button>
+    <div class="shop-title">⭐ КУПИТЬ МОНЕТЫ</div>
+    <div class="shop-sub">ОПЛАТА TELEGRAM STARS</div>
+    <div class="packs">
+      <div class="pack" data-coins="150" data-stars="15" onclick="selPack(this)">
+        <div class="pack-coins">150</div>
+        <div class="pack-label">монет</div>
+        <div class="pack-stars"><span class="si">⭐</span>15</div>
+      </div>
+      <div class="pack pop sel" data-coins="500" data-stars="45" onclick="selPack(this)">
+        <div class="pop-badge">ВЫГОДНО</div>
+        <div class="pack-coins">500</div>
+        <div class="pack-label">монет</div>
+        <div class="pack-stars"><span class="si">⭐</span>45</div>
+      </div>
+      <div class="pack" data-coins="1200" data-stars="99" onclick="selPack(this)">
+        <div class="pack-coins">1200</div>
+        <div class="pack-label">монет</div>
+        <div class="pack-stars"><span class="si">⭐</span>99</div>
+      </div>
+    </div>
+    <button class="shop-btn" id="shop-btn" onclick="buyPack()">КУПИТЬ ЗА ⭐ 45</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  TELEGRAM WEBAPP INIT
+// ══════════════════════════════════════════════
+const tg = window.Telegram?.WebApp;
+if(tg){ tg.ready(); tg.expand(); }
+
+// Получаем данные пользователя
+const TG_USER = tg?.initDataUnsafe?.user || null;
+const USER_ID = TG_USER?.id || 'demo';
+
+// ══════════════════════════════════════════════
+//  СОСТОЯНИЕ
+// ══════════════════════════════════════════════
+let balance = 200;
+let starsBalance = 0;   // звёзды пользователя (хранятся на сервере)
+let bet = 5;
+let running = false;
+let raf = null;
+let crashAt = 1;
+let t0 = 0;
+let multi = 1;
+let bestMulti = 0;
+let selectedPack = { coins: 500, stars: 45 };
+
+// ══════════════════════════════════════════════
+//  ЭЛЕМЕНТЫ
+// ══════════════════════════════════════════════
+const elBal   = document.getElementById('balance');
+const elRound = document.getElementById('round-stat');
+const elBest  = document.getElementById('best-stat');
+const elMnum  = document.getElementById('mnum');
+const elMst   = document.getElementById('mst');
+const elAbtn  = document.getElementById('abtn');
+const elHcs   = document.getElementById('hcs');
+const elBwrap = document.getElementById('bwrap');
+const elAframe= document.getElementById('aframe');
+const elFl    = document.getElementById('fl');
+const elRb    = document.getElementById('rbanner');
+const elRbv   = document.getElementById('rbv');
+const elRbl   = document.getElementById('rbl');
+const elShBtn = document.getElementById('shop-btn');
+const elStars = document.getElementById('stars-count');
+
+// ══════════════════════════════════════════════
+//  СТАВКИ
+// ══════════════════════════════════════════════
+function setBet(v){
+  bet = v;
+  document.getElementById('binp').value = v;
+  document.querySelectorAll('.qb').forEach(b=>b.classList.toggle('active',+b.dataset.v===v));
+}
+function setBetD(v){ bet=Math.max(1,Math.min(9999,+v||5)); document.getElementById('binp').value=bet; document.querySelectorAll('.qb').forEach(b=>b.classList.remove('active')); }
+
+// ══════════════════════════════════════════════
+//  ИГРА
+// ══════════════════════════════════════════════
+function genCrash(){
+  const r=Math.random();
+  if(r<.07)  return 1+Math.random()*.15;
+  if(r<.28)  return 1.15+Math.random()*.7;
+  if(r<.58)  return 1.85+Math.random()*2;
+  if(r<.82)  return 3.85+Math.random()*6;
+  return 10+Math.random()*40;
+}
+
+function handle(){
+  if(!running) startRound();
+  else cashOut();
+}
+
+function startRound(){
+  if(bet>balance){
+    hap('error'); 
+    elMst.textContent='НЕТ МОНЕТ — КУПИ В МАГАЗИНЕ';
+    setTimeout(()=>{elMst.textContent='СДЕЛАЙ СТАВКУ'},2000);
+    return;
+  }
+  balance-=bet; updateBal();
+  elRound.textContent='−'+bet; elRound.className='sv r';
+  running=true; crashAt=genCrash(); multi=1; t0=performance.now();
+  elAframe.classList.add('active');
+  elRb.classList.remove('show','lose');
+  elAbtn.className='abtn btn-c'; elAbtn.textContent='⬡ ЗАБРАТЬ';
+  tg?.MainButton.show(); tg?.MainButton.setText('ЗАБРАТЬ');
+  elMnum.className='mnum'; elMst.textContent='НАДУВАЕТСЯ...';
+  loop();
+}
+
+function loop(){
+  const el=(performance.now()-t0)/1000;
+  multi=Math.exp(0.4*el);
+  elMnum.textContent=multi.toFixed(2);
+  const s=1+Math.min((multi-1)*.016,.65);
+  const r=-(s-1)*42;
+  elBwrap.style.transform=`translateX(-50%) scale(${s.toFixed(4)}) translateY(${r.toFixed(1)}px)`;
+  if(multi<2){elMnum.className='mnum';elMst.textContent='НАДУВАЕТСЯ...';}
+  else if(multi<5){elMnum.className='mnum hot';elMst.textContent='РИСКУЙ ИЛИ ЗАБИРАЙ!';}
+  else{elMnum.className='mnum hot';elMst.textContent='⚠ ОПАСНАЯ ЗОНА!';}
+  if(multi>=crashAt){doCrash();return;}
+  raf=requestAnimationFrame(loop);
+}
+
+function cashOut(){
+  if(!running)return;
+  cancelAnimationFrame(raf); running=false;
+  const won=Math.floor(bet*multi), profit=won-bet;
+  balance+=won; updateBal();
+  elRound.textContent='+'+profit; elRound.className='sv g';
+  if(multi>bestMulti){bestMulti=multi;elBest.textContent=multi.toFixed(2)+'×';elBest.className='sv g';}
+  addHist(multi.toFixed(2),true);
+  showBanner(true,'+'+profit+'🪙');
+  hap('success');
+  finish();
+}
+
+function doCrash(){
+  running=false; cancelAnimationFrame(raf);
+  elMnum.className='mnum boom'; elMnum.textContent=crashAt.toFixed(2);
+  elMst.textContent='💥 ЛОПНУЛ!';
+  elFl.classList.add('on'); setTimeout(()=>elFl.classList.remove('on'),130);
+  spawnP(); addHist(crashAt.toFixed(2),false);
+  showBanner(false,'−'+bet+'🪙');
+  hap('error');
+  setTimeout(()=>resetBall(),500);
+  finish();
+}
+
+function finish(){
+  elAframe.classList.remove('active');
+  tg?.MainButton.hide();
+  elAbtn.disabled=true;
+  setTimeout(()=>{
+    elAbtn.className='abtn btn-s'; elAbtn.textContent='▶ ИГРАТЬ';
+    elAbtn.disabled=false;
+    elMnum.textContent='1.00'; elMnum.className='mnum';
+    elMst.textContent='СДЕЛАЙ СТАВКУ';
+    elRb.classList.remove('show','lose');
+  },2000);
+}
+function resetBall(){elBwrap.style.transform='translateX(-50%) scale(1) translateY(0)';}
+function updateBal(){elBal.textContent=balance;}
+function showBanner(win,val){
+  elRbl.textContent=win?'ВЫИГРЫШ':'ВЗРЫВ НА';
+  elRbv.textContent=val; elRbv.className='rbv '+(win?'w':'l');
+  elRb.classList.toggle('lose',!win); elRb.classList.add('show');
+}
+function addHist(val,win){
+  const c=document.createElement('span');
+  c.className='chip '+(win?'w':'l'); c.textContent=val+'×';
+  elHcs.prepend(c);
+  if(elHcs.children.length>14) elHcs.removeChild(elHcs.lastChild);
+}
+function spawnP(){
+  const el=document.getElementById('pts');
+  const cols=['#00fff0','#ff00aa','#ffe500','#ff2255','#00ff88'];
+  for(let i=0;i<22;i++){
+    const p=document.createElement('div'); p.className='p';
+    const c=cols[i%cols.length],sz=5+Math.random()*9;
+    const tx=(Math.random()-.5)*260,ty=-(40+Math.random()*200);
+    p.style.cssText=`width:${sz}px;height:${sz}px;background:${c};left:calc(50% - ${sz/2}px);bottom:80px;--x:${tx}px;--y:${ty}px;--d:${.5+Math.random()*.6}s`;
+    el.appendChild(p); setTimeout(()=>p.remove(),900);
+  }
+}
+function hap(type){
+  try{
+    if(tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred(type);
+    else if(navigator.vibrate) navigator.vibrate(type==='error'?[80,40,80]:[40]);
+  }catch(e){}
+}
+
+// ══════════════════════════════════════════════
+//  МАГАЗИН — TELEGRAM STARS
+// ══════════════════════════════════════════════
+function openShop(){
+  document.getElementById('overlay').classList.add('open');
+  hap('success');
+}
+function closeShop(){ document.getElementById('overlay').classList.remove('open'); }
+function overlayClick(e){ if(e.target===e.currentTarget) closeShop(); }
+
+function selPack(el){
+  document.querySelectorAll('.pack').forEach(p=>p.classList.remove('sel'));
+  el.classList.add('sel');
+  selectedPack = { coins: +el.dataset.coins, stars: +el.dataset.stars };
+  elShBtn.textContent = `КУПИТЬ ЗА ⭐ ${selectedPack.stars}`;
+}
+
+// ── Покупка через Telegram Stars ──────────────
+async function buyPack(){
+  if(!tg){
+    // Демо-режим без Telegram
+    balance += selectedPack.coins;
+    updateBal();
+    closeShop();
+    elMst.textContent=`+${selectedPack.coins} монет начислено!`;
+    setTimeout(()=>{elMst.textContent='СДЕЛАЙ СТАВКУ'},2000);
+    return;
+  }
+
+  elShBtn.disabled = true;
+  elShBtn.innerHTML = '<span class="loading-spin"></span>ОПЛАТА...';
+
+  try {
+    // 1. Запрашиваем invoice link у нашего бэкенда
+    const res = await fetch('/api/create-invoice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: USER_ID,
+        coins: selectedPack.coins,
+        stars: selectedPack.stars,
+        // Передаём initData для верификации на сервере
+        initData: tg.initData
+      })
+    });
+    const { invoiceLink } = await res.json();
+
+    // 2. Открываем встроенный платёжный экран Telegram
+    tg.openInvoice(invoiceLink, (status) => {
+      if(status === 'paid'){
+        // 3. Платёж прошёл — зачисляем монеты
+        balance += selectedPack.coins;
+        updateBal();
+        closeShop();
+        hap('success');
+        elMst.textContent = `+${selectedPack.coins} монет зачислено!`;
+        setTimeout(()=>{ elMst.textContent='СДЕЛАЙ СТАВКУ'; }, 2500);
+      } else if(status === 'cancelled'){
+        elMst.textContent = 'Оплата отменена';
+        setTimeout(()=>{ elMst.textContent='СДЕЛАЙ СТАВКУ'; }, 2000);
+      } else if(status === 'failed'){
+        elMst.textContent = 'Ошибка оплаты, попробуй снова';
+        setTimeout(()=>{ elMst.textContent='СДЕЛАЙ СТАВКУ'; }, 2000);
+      }
+      elShBtn.disabled = false;
+      elShBtn.textContent = `КУПИТЬ ЗА ⭐ ${selectedPack.stars}`;
+    });
+
+  } catch(err) {
+    console.error('Invoice error:', err);
+    elShBtn.disabled = false;
+    elShBtn.textContent = `КУПИТЬ ЗА ⭐ ${selectedPack.stars}`;
+    elMst.textContent = 'Ошибка соединения с сервером';
+    setTimeout(()=>{ elMst.textContent='СДЕЛАЙ СТАВКУ'; }, 2500);
+  }
+}
+
+// ── Обработка кнопки MainButton (Cashout) ─────
+tg?.MainButton.onClick(cashOut);
+tg?.BackButton.show();
+tg?.BackButton.onClick(()=>tg.close());
+</script>
+</body>
+</html>
